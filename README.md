@@ -1,4 +1,4 @@
-# LAB 3 Andrea Mirenda
+# CI2024_lab3
 
 In this lab I tried to implement a solution for the N^2-1 Puzzle.
 
@@ -28,9 +28,55 @@ The N²-1 puzzle is a benchmark problem for evaluating optimization and search s
 
 ## Methodology
 
-At first, I tried to solve the problem by using a depth search and a breath search aproach. The problems of these algorithm were the fact that they didn't scale up with the complexity of the problem space. These techniques, infact, were perfectly able to solve a 8 puzzle in a resonable time, but did not solve the 15 puzzle.
+Initially, I attempted to solve the problem using both depth-first and breadth-first search approaches. However, these algorithms struggled to scale with the increasing complexity of the problem space. While they were capable of solving the 8-puzzle within a reasonable time, they failed to solve the 15-puzzle efficiently.
 
-I tried to use the A* algorithm, which is a graph traversal and pathfinding algorithm that finds the shortest path between nodes by combining the actual cost from the start node (g) and a heuristic estimate to the goal (h). It balances exploration and efficiency, ensuring an optimal path if the heuristic is admissible (and we are using a tree-like representation).
+```python
+def depth_limited_search(initial_state: np.ndarray, final_state: np.ndarray, max_depth: int) -> list[action] or None:
+    stack = deque([(initial_state, [], 0)])  # Stack of (current state, path to reach it, current depth)
+    visited = set()  # Set of visited states for current path only
+    optimum = matrix_score(final_state)
+
+    while stack:
+        current_state, path, depth = stack.pop()
+        current_score = matrix_score(current_state)
+
+        # Check if we reached the goal
+        if current_score == optimum:
+            return path
+        
+        # # Backtrack if depth limit reached
+        if depth >= max_depth:
+            continue
+        
+        # Add current state to visited set (track only in current path)
+        visited.add(current_score)
+        
+        # Generate and iterate over all possible moves
+        for act in available_actions(current_state):
+            next_state = do_action(current_state, act)
+            
+            # Check if the next state has already been visited in the current path
+            if matrix_score(next_state) not in visited:
+                # Add the new state and path to stack, increase depth
+                stack.append((next_state, path + [act], depth + 1))
+        
+        # Remove the current state from visited set after backtracking
+        #visited.remove(matrix_score(current_state))
+    
+    return None  # Return None if no solution is found within depth limit
+
+# Iterative Deepening Depth-First Search (IDDFS) wrapper function
+def iterative_deepening_dfs(initial_state: np.ndarray, final_state: np.ndarray, max_depth: int = 50) -> list[action] or None:
+    for depth in range(1, max_depth + 1):
+        result = depth_limited_search(initial_state, final_state, depth)
+        if result is not None:
+            return result
+    return None
+```
+
+I also tried to speed up the process by implementing a Dijkstra aproach but the results were not so interesting.
+
+To address this, I turned to the A* algorithm, a well-known graph traversal and pathfinding technique. A* finds the shortest path between nodes by combining the actual cost from the start node (g) with a heuristic estimate of the cost to reach the goal (h). This approach effectively balances exploration and efficiency, ensuring an optimal solution when the heuristic is admissible and a tree-like structure is used.
 
 ```python
 def enhanced_a_star(initial_state: np.ndarray, final_state: np.ndarray) -> Tuple[Union[list, None], float]:
@@ -79,7 +125,25 @@ def enhanced_a_star(initial_state: np.ndarray, final_state: np.ndarray) -> Tuple
     return None, float('inf')  # No solution found
 ```
 
-The first euristic function used was the Manhattan distance. Manhattan distance is a measure of distance between two points in a grid-based system, calculated as the sum of the absolute differences of their Cartesian coordinates. It reflects the total horizontal and vertical steps needed to travel between the points, resembling movement along a city street grid.
+To prevent loops during the search, a set of previously visited nodes is maintained. The most efficient way to store the nodes appeared to be using the following function:
+
+```python
+def state_to_bytes(state: np.ndarray) -> bytes:
+    return state.tobytes()
+```
+This function converts a NumPy array (state) into a compact byte representation using the tobytes() method, making it efficient for storage and comparison.
+I also tried different aproaches, like implementing a function by my self in the following way:
+```python
+def matrix_score(matrix):
+    matrice = matrix.flatten()
+    score = 0
+    for i in range(len(matrice)):
+        score += (10**i)*matrice[i]
+    return int(score)
+```
+But among all the possible options considered, the .__tobytes()__ function showed the best results.
+
+The first heuristic function used was the Manhattan distance. This metric quantifies the distance between two points in a grid-based system by summing the absolute differences of their Cartesian coordinates. It represents the total number of horizontal and vertical steps required to travel between the points, similar to movement along a city street grid.
 
 ```python
 def heuristic_manhattan_distance(self, position):
@@ -96,11 +160,11 @@ def heuristic_manhattan_distance(self, position):
 ```
 
 
-Using this aproach I was now able to solve the 8 puzzle problem in an optimal way within some minutes.
+With this approach, I was able to solve the 8-puzzle problem optimally in just a few minutes.
 
-Since the execution time depends on the hardware component that executes the program, from now on we will rely on different measurement of the efficiency of the program, which is the total number of evaluation computed by the algorithm, we will name this measurement "cost". 
+Since execution time can vary depending on the hardware running the program, we will use a different metric to evaluate the algorithm's efficiency: the total number of evaluations performed, which we will refer to as the '__cost__.'
 
-Since the aim of the algorithm should be to find the minimum number of operations, we will name "quality" of a solution the length of the actions vector.
+As the goal of the algorithm is to minimize the number of operations, we will define the '__quality__' of a solution as the length of the action vector.
 
 ### Starting point
 As a starting point a random initial state of the matrix was provided in the following way:
@@ -112,7 +176,7 @@ for r in tqdm(range(RANDOMIZE_STEPS), desc='Randomizing'):
 ```
 
 ### Results first aproach
-In the following are reported some results, but to be more precise the starting point shoulb be provided too, in the following tables we are considering a mean of the values obtained.
+The following results are presented, but for clarity, the starting point should also be specified. In the tables below, I report the average values obtained.
 
 |    Puzzle dimension       | 3 | 8 |
 |-----------|-----------|-----------|
@@ -122,9 +186,9 @@ In the following are reported some results, but to be more precise the starting 
 
 
 ## Second aproach
-It became immediatly clear that the main problem to solve was not the efficiency of the solution, but the ability to solve it. I tried to focus more on faster aproach to get a solution, even if they were not the best one. 
+It quickly became clear that the primary challenge was not the efficiency of the solution, but the ability to find a solution at all. As a result, I shifted my focus toward faster approaches, even if they weren’t optimal.
 
-To do so, I tried to over-estimate the solution in a way that the A* algorithm would act similar to a depth search, using a FIFO priority queue. To do so, for the 15 and 24 puzzle problem I first decided to use more heurist functions:
+To achieve this, I attempted to overestimate the solution in such a way that the A* algorithm would behave more like a depth-first search, using a FIFO priority queue. For the 15-puzzle and 24-puzzle problems, I decided to experiment with additional heuristic functions:
 ```python
     def heuristic_linear_conflict(self, position):
         conflict = 0
@@ -176,9 +240,9 @@ To do so, I tried to over-estimate the solution in a way that the A* algorithm w
         return walking_distance
 ```
 
-The value provided for a given state was computed by considering a sum over all these metrics (included the Manhattan distance show previously).
+The value assigned to a given state was calculated by summing all of these metrics, including the Manhattan distance mentioned earlier.
 
-This solution worked increadibly well for problem instances till the 24 puzzle problem. 
+This approach worked incredibly well for problem instances up to the 24-puzzle.
 
 ### Results second aproach
 
@@ -191,22 +255,16 @@ This solution worked increadibly well for problem instances till the 24 puzzle p
 
 
 ## Third aproach
-I kept on over-estimating the heuristic to speed up the execution of the code and obtain a first suitable solution for the problem. The idea was simply to multiply the resutlt of the heuristicb by a scaling factor. The scaling factor was fine tuned to balance goodness of the solution and the cost.
+Based on suggestions from my colleague Stefano Fumero, I continued to overestimate the heuristic to speed up the execution and obtain an initial, suitable solution for the problem. The approach involved multiplying the heuristic result by a scaling factor. This factor was fine-tuned to balance the quality of the solution with the associated cost.
 
-The management of the parameter and of the heuristic in general is the following:
+The management of the parameter and the heuristic is as follows:
 ```python
     def combined_heuristic(self, state: np.ndarray) -> int:
-    
         if PUZZLE_DIM<=3:
             return self.heuristic_manhattan_distance(state)
-
         if PUZZLE_DIM<=5:
             return 1*(self.heuristic_manhattan_distance(state) + self.heuristic_linear_conflict(state) + self.heuristic_walking_distance(state))
-
-        if PUZZLE_DIM==6:
-            return 100*(self.heuristic_manhattan_distance(state) + self.heuristic_linear_conflict(state) + self.heuristic_walking_distance(state))
-
-        return 10_000*(self.heuristic_manhattan_distance(state) + self.heuristic_linear_conflict(state) + self.heuristic_walking_distance(state))
+        return 5*(self.heuristic_manhattan_distance(state) + self.heuristic_linear_conflict(state) + self.heuristic_walking_distance(state))
 
 ```
 
@@ -214,6 +272,25 @@ The management of the parameter and of the heuristic in general is the following
 
 |    Puzzle dimension       | 3 | 8 | 15 |24|35|48|
 |-----------|-----------|-----------|-----------|-----------|-----------|-----------|
-| time (s) | 0  | 0  | 0.4  | 96.7  |29.3  |10.3 |
-| cost | 7  | 87  | 7968  | 340656 |759556  |67946  |
-| Quality| 6  | 24  | 52  | 142  |464  |952  |
+| time (s) | 0  | 0  | 0.4  | 96.7  |21.7  |20.9 |
+| cost | 7  | 87  | 7968  | 340656 |78992  |55516  |
+| Quality| 6  | 24  | 52  | 142  |388  |592  |
+
+
+# Conclusions
+
+In this lab, I explored different strategies for solving the N²-1 puzzle problem, a classic sliding puzzle that involves rearranging tiles to reach a target configuration. Through several iterative approaches, I was able to evaluate different algorithms and heuristics, focusing on balancing the trade-off between solution quality and computational efficiency.
+
+### Key Findings:
+1. **Depth-First and Breadth-First Search**: Initially, I experimented with depth-first and breadth-first search algorithms. While these methods performed well on smaller puzzle sizes (e.g., the 3x3 puzzle), they struggled to solve larger puzzles like the 4x4 or 5x5 efficiently. These approaches, although conceptually simple, proved inefficient for larger state spaces due to their exponential growth in time and space complexity.
+
+2. **A* Algorithm with Heuristics**: Implementing the A* algorithm significantly improved performance, especially for larger puzzles. The Manhattan distance heuristic provided a reliable way to estimate the cost to the goal, leading to optimal solutions for smaller puzzles within reasonable time. However, as the puzzle size increased, the algorithm's performance was still constrained by the number of states explored.
+
+3. **Heuristic Refinement**: As the puzzle size increased (e.g., from 8-puzzle to 15-puzzle and beyond), it became evident that the key challenge was not just efficiency but also the ability to find a solution in a reasonable time. By introducing more complex heuristics, such as linear conflict and walking distance, I was able to achieve faster solutions for larger puzzle sizes. These additional heuristics helped reduce the search space, although at the cost of longer computation times.
+
+4. **Overestimating Heuristics for Faster Solutions**: To further optimize for faster solutions, I experimented with scaling the heuristics. This involved adjusting the weights of the heuristic functions based on the puzzle size. By overestimating the heuristic values, the algorithm behaved more like a breadth-first search, reducing the time needed to find a solution, although this sometimes resulted in suboptimal solutions.
+
+### Performance Summary:
+- The third approach, using a combined heuristic with scaling factors, provided a good balance between solution quality and execution time, especially for larger puzzles. This approach allowed for faster solutions with an acceptable increase in the number of evaluated states (cost).
+- For smaller puzzles (3x3 and 4x4), simpler heuristics like Manhattan distance performed well, providing both optimal solutions and fast execution times.
+- For larger puzzles (15, 24, 35, 48), more advanced heuristics combined with scaling factors allowed the algorithm to quickly find solutions, though the solution quality (length of the action sequence) was not always optimal.
