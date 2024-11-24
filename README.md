@@ -276,6 +276,7 @@ The management of the parameter and the heuristic is as follows:
 | cost | 7  | 87  | 7968  | 340656 |78992  |55516  |
 | Quality| 6  | 24  | 52  | 142  |388  |592  |
 
+The 48 puzzle isn't always solvable, which I believe may also be due to the fact that some initial configurations are inherently unsolvable.
 
 # Conclusions
 
