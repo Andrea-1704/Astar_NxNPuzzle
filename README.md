@@ -1,4 +1,4 @@
-# CI2024_lab3
+# NxN puzzle resolution with A-star Algorithm
 
 In this lab I tried to implement a solution for the N^2-1 Puzzle.
 
